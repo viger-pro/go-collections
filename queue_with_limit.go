@@ -1,8 +1,15 @@
 package collections
 
+import "time"
+
 type QueueWithLimit[T any] interface {
-	Enqueue(T) error
-	Dequeue() (T, error)
+	AddLast(T) error
+	TryAddLast(T) error
+	TryAddLastWithTimeout(T, time.Duration) error
+
+	RemoveFirst() (T, error)
+	TryRemoveFirst() (T, error)
+
 	MaxSize() uint
 	Size() uint
 }

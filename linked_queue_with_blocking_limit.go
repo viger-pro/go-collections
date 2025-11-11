@@ -30,7 +30,7 @@ func NewLinkedQueueWithBlockingLimit[T any](maxSize uint) *LinkedQueueWithBlocki
 	}
 }
 
-func (q *LinkedQueueWithBlockingLimit[T]) Enqueue(value T) error {
+func (q *LinkedQueueWithBlockingLimit[T]) AddLast(value T) error {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -46,7 +46,7 @@ func (q *LinkedQueueWithBlockingLimit[T]) Enqueue(value T) error {
 		<-q.enqueueChan
 		q.lock.Lock()
 	}
-	q.queue.Enqueue(value)
+	q.queue.AddLast(value)
 
 	select {
 	case q.dequeueChan <- true:
@@ -57,7 +57,11 @@ func (q *LinkedQueueWithBlockingLimit[T]) Enqueue(value T) error {
 	return nil
 }
 
-func (q *LinkedQueueWithBlockingLimit[T]) Dequeue() (t T, err error) {
+func (q *LinkedQueueWithBlockingLimit[T]) MaxSize() uint {
+	return q.maxSize
+}
+
+func (q *LinkedQueueWithBlockingLimit[T]) RemoveFirst() (t T, err error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 
@@ -73,7 +77,7 @@ func (q *LinkedQueueWithBlockingLimit[T]) Dequeue() (t T, err error) {
 		<-q.dequeueChan
 		q.lock.Lock()
 	}
-	t, err = q.queue.Dequeue()
+	t, err = q.queue.RemoveFirst()
 
 	select {
 	case q.enqueueChan <- true:
@@ -84,25 +88,34 @@ func (q *LinkedQueueWithBlockingLimit[T]) Dequeue() (t T, err error) {
 	return t, err
 }
 
-func (q *LinkedQueueWithBlockingLimit[T]) MaxSize() uint {
-	return q.maxSize
-}
-
 func (q *LinkedQueueWithBlockingLimit[T]) Size() uint {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	return q.queue.Size()
 }
 
-// TryEnqueue attempts to insert an element into the queue and in case the queue is full,
+// TryRemoveFirst attempts to remove first element from the queue. If the queue is empty it will return an error
+// immediately without wait.
+func (q *LinkedQueueWithBlockingLimit[T]) TryRemoveFirst() (t T, err error) {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	if q.queue.Size() == 0 {
+		return t, errors.New("queue is empty")
+	}
+
+	return q.queue.RemoveFirst()
+}
+
+// TryAddLast attempts to insert an element into the queue and in case the queue is full,
 // it returns an error immediately, without waiting.
-func (q *LinkedQueueWithBlockingLimit[T]) TryEnqueue(value T) (err error) {
+func (q *LinkedQueueWithBlockingLimit[T]) TryAddLast(value T) (err error) {
 	q.lock.Lock()
 	defer q.lock.Unlock()
 	if q.queue.Size() >= q.maxSize {
 		err = errors.New("queue is full")
 	} else {
-		q.queue.Enqueue(value)
+		q.queue.AddLast(value)
 		select {
 		case q.dequeueChan <- true:
 			break
@@ -113,8 +126,8 @@ func (q *LinkedQueueWithBlockingLimit[T]) TryEnqueue(value T) (err error) {
 	return err
 }
 
-// TryEnqueueWithTimeout attempts to insert an element into the queue and in case the queue is full it waits up to
+// TryAddLastWithTimeout attempts to insert an element into the queue and in case the queue is full it waits up to
 // the given timeout for the queue to be dequeued.
-func (q *LinkedQueueWithBlockingLimit[T]) TryEnqueueWithTimeout(value T, timeout time.Duration) (err error) {
+func (q *LinkedQueueWithBlockingLimit[T]) TryAddLastWithTimeout(value T, timeout time.Duration) (err error) {
 	return nil
 }

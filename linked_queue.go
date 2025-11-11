@@ -17,12 +17,10 @@ type LinkedQueue[T any] struct {
 }
 
 func NewLinkedQueue[T any]() *LinkedQueue[T] {
-	return &LinkedQueue[T]{
-	}
+	return &LinkedQueue[T]{}
 }
 
-
-func (q *LinkedQueue[T]) Enqueue(value T) {
+func (q *LinkedQueue[T]) AddLast(value T) {
 	e := &entry[T]{value: value}
 	if q.tail != nil {
 		q.tail.next = e
@@ -33,7 +31,7 @@ func (q *LinkedQueue[T]) Enqueue(value T) {
 	q.size++
 }
 
-func (q *LinkedQueue[T]) Dequeue() (T, error) {
+func (q *LinkedQueue[T]) RemoveFirst() (T, error) {
 	if q.head == nil {
 		var t T
 		return t, errors.New("the queue is empty")

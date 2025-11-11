@@ -1,7 +1,7 @@
 package collections
 
 type Queue[T any] interface {
-	Enqueue(T)
-	Dequeue() (T, error)
+	AddLast(T)
+	RemoveFirst() (T, error)
 	Size() uint
 }
