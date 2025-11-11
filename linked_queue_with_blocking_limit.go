@@ -41,7 +41,7 @@ func (q *LinkedQueueWithBlockingLimit[T]) AddLast(value T) error {
 		break
 	}
 
-	if q.queue.Size() >= q.maxSize {
+	for q.queue.Size() >= q.maxSize {
 		q.lock.Unlock()
 		<-q.enqueueChan
 		q.lock.Lock()
@@ -72,18 +72,20 @@ func (q *LinkedQueueWithBlockingLimit[T]) RemoveFirst() (t T, err error) {
 		break
 	}
 
-	if q.queue.Size() == 0 {
+	for q.queue.Size() == 0 {
 		q.lock.Unlock()
 		<-q.dequeueChan
 		q.lock.Lock()
 	}
 	t, err = q.queue.RemoveFirst()
 
-	select {
-	case q.enqueueChan <- true:
-		break
-	default:
-		break
+	if err == nil {
+		select {
+		case q.enqueueChan <- true:
+			break
+		default:
+			break
+		}
 	}
 	return t, err
 }
@@ -104,7 +106,17 @@ func (q *LinkedQueueWithBlockingLimit[T]) TryRemoveFirst() (t T, err error) {
 		return t, errors.New("queue is empty")
 	}
 
-	return q.queue.RemoveFirst()
+	first, err := q.queue.RemoveFirst()
+	if err == nil {
+		select {
+		case q.enqueueChan <- true:
+			break
+		default:
+			break
+		}
+	}
+
+	return first, err
 }
 
 // TryAddLast attempts to insert an element into the queue and in case the queue is full,
@@ -128,6 +140,45 @@ func (q *LinkedQueueWithBlockingLimit[T]) TryAddLast(value T) (err error) {
 
 // TryAddLastWithTimeout attempts to insert an element into the queue and in case the queue is full it waits up to
 // the given timeout for the queue to be dequeued.
-func (q *LinkedQueueWithBlockingLimit[T]) TryAddLastWithTimeout(value T, timeout time.Duration) (err error) {
-	return nil
+func (q *LinkedQueueWithBlockingLimit[T]) TryAddLastWithTimeout(value T, timeout time.Duration) error {
+	q.lock.Lock()
+	defer q.lock.Unlock()
+
+	select {
+	case <-q.enqueueChan:
+		break
+	default:
+		break
+	}
+
+	if q.queue.Size() >= q.maxSize {
+		deadline := time.Now().Add(timeout)
+		for q.queue.Size() >= q.maxSize {
+			timeout = deadline.Sub(time.Now())
+			if timeout <= 0 {
+				break
+			}
+			q.lock.Unlock()
+			select {
+			case <-q.enqueueChan:
+				break
+			case <-time.After(timeout):
+				break
+			}
+			q.lock.Lock()
+		}
+	}
+
+	if q.queue.Size() >= q.maxSize {
+		return errors.New("queue is full")
+	} else {
+		q.queue.AddLast(value)
+		select {
+		case q.dequeueChan <- true:
+			break
+		default:
+			break
+		}
+		return nil
+	}
 }
