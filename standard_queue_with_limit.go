@@ -8,7 +8,7 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-// StandardQueueWithLimit an implementation of QueueWithLimit built on Queue.
+// StandardQueueWithLimit an implementation of QueueWithLimit built on a Queue.
 type StandardQueueWithLimit[T any] struct {
 	freeSlotsSemaphore *semaphore.Weighted
 	fullSlotsSemaphore *semaphore.Weighted
