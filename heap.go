@@ -5,6 +5,8 @@ import (
 	"errors"
 )
 
+var ErrEmptyHeap = errors.New("heap is empty")
+
 type Heap[T any] struct {
 	array   []T
 	size    int
@@ -43,9 +45,16 @@ func (heap *Heap[T]) Add(element T) {
 	heap.size += 1
 }
 
+func (heap *Heap[T]) GetFirst() (t T, err error) {
+	if heap.size == 0 {
+		return t, ErrEmptyHeap
+	}
+	return heap.array[0], nil
+}
+
 func (heap *Heap[T]) Remove() (t T, err error) {
 	if heap.size == 0 {
-		return t, errors.New("heap is empty")
+		return t, ErrEmptyHeap
 	}
 	element := heap.array[0]
 	heap.size -= 1
